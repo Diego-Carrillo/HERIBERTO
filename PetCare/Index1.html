@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petcare</title>
+    <!-- Enlace al archivo CSS externo -->
+    <link rel="stylesheet" href="Styles.css">
+    <!-- Biblioteca TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Biblioteca Teachable Machine -->
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+</head>
+<body>
+
+    <!-- Add a div to hold the floating window -->
+<div id="teachable-machine-window" style="display: none;"></div>
+
+    <!-- ... -->
+</div>
+    <!-- Menú superior -->
+    <div id="menu-bar">
+        <a href="#" onclick="showScreen('start-screen')">Inicio</a>
+        <a href="#" onclick="showScreen('form-screen')">Formulario</a>
+        <a href="#" onclick="showTeachableMachine()">Teachable Machine</a>
+        <a href="#" onclick="showDiagnostico()">Diagnósticos</a>
+        <a href="#" onclick="showPasswordPrompt()">Registros</a>
+    </div>
+
+    <!-- Pantalla de inicio -->
+    <img id="left-gif" class="inicio-logo" src="Logo.png" alt="Logo de Petcare">
+    <div id="start-screen" class="screen active dancing-script-custom">
+        <h1 class="text-large"> Somos Petcare </h1>
+        <p class="text-medium">La implementación de la plataforma tiene como fin la identificación de padecimientos y condiciones médicas en las mascotas, con el objetivo de contribuir de manera positiva en su bienestar físico.</p>
+    </div>
+
+    <!-- Sección de inicio de sesión -->
+    <div id="login-section">
+        <div class="login-container">
+            <div class="login-text">
+                <h2>Inicia Sesión</h2>
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <label for="username">Usuario:</label>
+                    <input type="text" id="username" required>
+                    
+                    <label for="password">Contraseña:</label>
+                    <input type="password" id="password" required>
+                    
+                    <button type="submit">Ingresar</button>
+                </form>
+            </div>
+            <div id="gif-container">
+                <img src="Petcare.gif" alt="GIF">
+            </div>            
+        </div>
+    </div>
+
+    <!-- Pantalla de formulario -->
+    <div id="form-screen" class="screen dancing-script-custom">
+        <h2 class="text-large">Carnet de Identificación</h2>
+        <form id="registration-form">
+            <label for="nombre">Nombre de la mascota:</label>
+            <input type="text" id="nombre" name="nombre" required>
+
+            <label for="raza">Raza:</label>
+            <input type="text" id="raza" name="raza" required>
+
+            <label for="edad">Edad de la Mascota:</label>
+            <input type="text" id="edad" name="edad" required>
+
+            <label for="adulto">Adulto Responsable:</label>
+            <input type="text" id="adulto" name="adulto" required>
+
+            <label for="telefono">Teléfono de Emergencia:</label>
+            <input type="text" id="telefono" name="telefono" required>
+
+            <button type="submit" class="text-medium">Registrar</button>
+        </form>
+    </div>
+
+    <!-- Pantalla de registros -->
+    <div id="records-screen" class="screen dancing-script-custom">
+        <h2 class="text-large">Registros Recientes</h2>
+        <div id="records-list" class="text-medium"></div>
+    </div>
+
+    <!-- Modal para ingresar la contraseña -->
+    <div id="password-modal" class="modal">
+        <div class="modal-content">
+            <h2>Ingrese la Contraseña</h2>
+            <form id="password-form">
+                <input type="password" id="password-input" required>
+                <button type="submit">Acceder</button>
+            </form>
+            <p id="error-message" style="color: red; display: none;">Contraseña incorrecta, inténtelo de nuevo.</p>
+        </div>
+    </div>
+    
+    <div id="predictions" class="predictions-container">
+        <h3>Predicciones:</h3>
+        <div id="predictions-list"></div>
+    </div>
+    
+    <!-- Pantalla de Teachable Machine -->
+    <div id="teachable-screen" class="screen">
+        <h2 class="text-large">Teachable Machine</h2>
+        <p>Usa la cámara para detectar imágenes.</p>
+        <video id="webcam" autoplay playsinline></video>
+        
+    </div>
+
+    <div>Teachable Machine Image Model</div>
+<button type="button" onclick="init()">Start</button>
+<div id="webcam-container"></div>
+<div id="label-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+    // the link to your model provided by Teachable Machine export panel
+    const URL = "https://teachablemachine.withgoogle.com/models/IauQ1PDMc/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    // Load the image model and setup the webcam
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // or files from your local hard drive
+        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        // append elements to the DOM
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) { // and class labels
+            labelContainer.appendChild(document.createElement("div"));
+        }
+    }
+
+    async function loop() {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    // run the webcam image through the image model
+    async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction =
+                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+    }
+</script>
+
+
+    <!-- Enlace al archivo JavaScript -->
+    <script src="Scripts.js"></script>
+</body>
+</html>
